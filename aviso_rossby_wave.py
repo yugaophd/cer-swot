@@ -67,8 +67,8 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, wavespeed, lon, lat, T_time):
                 for mm in range(MModes):
                     for count in range(len(Iindex)):
                         # change lon, lat to (dlon, dlat = (lon, lat) - mea
-                        H0[count, 0] = Psi[0, mm] * np.cos(k_n[nn, mm] * dlon[int(Iindex[count])]* 1.11e5 + l_n[ll, mm] * dlat[int(Jindex[count])]* .85e5 - freq_n[nn, ll, mm] * T_time[int(Tindex[count])]) #conversion to distance 
-                        H0[count, 1] = Psi[0, mm] * np.sin(k_n[nn, mm] * dlon[int(Iindex[count])]* 1.11e5 + l_n[ll, mm] * dlat[int(Jindex[count])]* .85e5 - freq_n[nn, ll, mm] * T_time[int(Tindex[count])])           
+                        H0[count, 0] = Psi[0, mm] * np.cos(k_n[nn, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])]*  - freq_n[nn, ll, mm] * T_time[int(Tindex[count])]) #conversion to distance 
+                        H0[count, 1] = Psi[0, mm] * np.sin(k_n[nn, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] - freq_n[nn, ll, mm] * T_time[int(Tindex[count])])           
 
                     M = 2
 
@@ -313,4 +313,5 @@ def make_error(days, alpha_roll, alpha_base, yswath_index_left, yswath_index_rig
     xc2_valid = np.tile(xc2_index, days)
 
     return roll_err_valid, baseline_dilation_err_valid, xc1_valid, xc2_valid 
+
 

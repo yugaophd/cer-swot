@@ -120,79 +120,7 @@ def make_ssh_predictions(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_tim
     
     '''
     Make SSH predictions with the estimated Rossby wave amplutudes.
-    Imput: timestamp, estimated amplitudes, True AVISO SSH anomalies and H matrix (basis functions).
-    '''
-    
-    import numpy as np
-    from tqdm import tqdm
-    from numpy import linalg as LA
-    from scipy import linalg
-    
-    Phi0 = lat.mean() # central latitude (φ0)
-    Omega = 7.27e-5 # Ω is the angular speed of the earth
-    Earth_radius = 6.371e6/1e5 # meters
-    Beta = 2 * Omega * np.cos(Phi0) / Earth_radius 
-    f0 = 2 * Omega * np.sin(Phi0) #1.0313e-4 # 45 N
-    #g = 9.81 # gravity 
-    
-    dlon = lon - lon.mean()
-    dlat = lat - lat.mean()
-
-    time_vector = np.zeros(MSLA.size)
-    lon_vector, lat_vector = np.zeros(MSLA.size),np.zeros(MSLA.size)
-    Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
-    SSHA_vector = np.zeros(MSLA.size)
-    
-    count = 0
-    for ii in range(MSLA.shape[0]):
-        for jj in range(MSLA.shape[1]):
-            for tt in range(MSLA.shape[2]):
-                if(MSLA[ii, jj, tt] != np.nan): 
-                    SSHA_vector[count] = MSLA[ii, jj, tt]
-                    Iindex[count], Jindex[count], Tindex[count] = ii, jj, tt
-                    count = count + 1
-    
-    Tindex = np.repeat(timestamp, len(SSHA_vector))
-    
-    M = len(k_n) * len(l_n) # Number of waves/models
-
-    H_cos, H_sin = np.zeros([len(SSHA_vector), M]), np.zeros([len(SSHA_vector), M])
-    H_all = np.zeros([len(SSHA_vector), M * 2])
-    omega = np.zeros([len(k_n), len(l_n), MModes])
-    
-    for kk in range(len(k_n)):
-        for ll in range(len(l_n)):
-            for mm in range(MModes):
-                omega[kk, ll, mm] =  -1 *(Beta * k_n[kk, mm]) / (k_n[kk, mm] ** 2 + l_n[ll, mm] ** 2 + Rm[mm] ** -2)
-
-    nn = 0 
-    for kk in range(len(k_n)):
-        for ll in range(len(l_n)):
-            for mm in range(MModes):
-                for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] - omega[kk, ll, mm] * (T_time[int(Tindex[count])] ) )   
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] - omega[kk, ll, mm] * (T_time[int(Tindex[count])] ) )
-                nn += 1
-
-    H_all[:, 0::2] = H_cos 
-    H_all[:, 1::2] = H_sin
-
-    SSHA_predicted = np.matmul(H_all, amp)
-
-    # calculate residual variance
-    residual_iter = SSHA_vector - SSHA_predicted
-
-    # evaluate skill (1- rms_residual/rms_ssha_vector) and store the skill
-    # skill value nn, ll, mm, = skill value
-    variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
-    
-    return SSHA_predicted, SSHA_vector, variance_explained_iter
-
-def make_ssh_predictions1(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
-    
-    '''
-    Make SSH predictions with the estimated Rossby wave amplutudes.
-    Imput: timestamp, estimated amplitudes, True AVISO SSH anomalies and H matrix (basis functions).
+    Input: timestamp, estimated amplitudes, True AVISO SSH anomalies and H matrix (basis functions).
     '''
     
     import numpy as np
@@ -241,7 +169,6 @@ def make_ssh_predictions1(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_ti
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                #omega[kk, ll, mm] = (Beta * k_n[kk, mm]) / (k_n[kk, mm] ** 2 + l_n[ll, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
                     H_cos[count, nn] = Psi[0, mm] * np.cos(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] - omega[kk, ll, mm] * (T_time[int(Tindex[count])] ))
                     H_sin[count, nn] = Psi[0, mm] * np.sin(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] - omega[kk, ll, mm] * (T_time[int(Tindex[count])] ))
@@ -281,11 +208,24 @@ def reverse_vector(True_MSLA, SSHA_predicted):
                     count += 1
     return MSLA_est
 
-def build_h_matrix(MModes,k_n, l_n, lon, lat, T_time, Psi, Rm):
+def build_h_matrix(SSHA_vector, MModes,k_n, l_n, lon, lat, T_time, Psi, Rm):
     
     '''
-    Build H matrix.
+    Build H matrix or basis function for Rossby wave model.
+    
+    Input:
+    SSHA_vector: SSH anomalies as a vector,
+    Psi (horizontal velocity and pressure structure functions), 
+    k_n (zonal wavenumber), 
+    l_n (latitudional wavenumber), 
+    frequency, 
+    longitude, latitude and time. 
+    
+    Output: H matrix for Rossby wave model
+    
     '''
+    
+    import numpy as np
     
     Phi0 = lat.mean() # central latitude (φ0)
     Omega = 7.27e-5 # Ω is the angular speed of the earth

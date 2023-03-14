@@ -40,8 +40,8 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
             for jj in range(MSLA.shape[1]):
                 if(SSHA_masked[ii, jj, tt] != np.nan): 
                     SSHA_vector[count] = MSLA[ii, jj, tt]
-                    lon_vector[count] = lon[jj]
-                    lat_vector[count] = lat[ii]
+                    #lon_vector[count] = lon[jj]
+                    #lat_vector[count] = lat[ii]
                     time_vector[count] = T_time[tt]
                     Iindex[count], Jindex[count], Tindex[count] = int(ii), int(jj), int(tt)
                     count = count + 1

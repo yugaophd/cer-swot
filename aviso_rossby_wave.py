@@ -6,8 +6,8 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
     Input: 
     SSHA_vector: AVISO SSH anomaly, 
     Psi (horizontal velocity and pressure structure functions), 
-    k_n (zonal wavenumber), 
-    l_n (latitudional wavenumber), 
+    l_n (zonal wavenumber), 
+    k_n (latitudional wavenumber), 
     frequency, 
     longitude, latitude and time. 
     
@@ -31,7 +31,7 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
     SSHA_masked = np.ma.masked_invalid(MSLA)
     SSHA_vector = np.zeros(MSLA.size)
     time_vector = np.zeros(MSLA.size)
-    lon_vector, lat_vector = np.zeros(MSLA.size),np.zeros(MSLA.size)
+    #lon_vector, lat_vector = np.zeros(MSLA.size),np.zeros(MSLA.size)
     Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
     
     count = 0
@@ -47,23 +47,23 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
                     count = count + 1
 
     H0 = np.zeros([len(SSHA_vector), 2]) # Number of data * Number of models
-    skill = np.zeros([len(k_n), len(l_n), MModes])
-    omega = np.zeros([len(k_n), len(l_n), MModes])
+    skill = np.zeros([len(l_n), len(k_n), MModes])
+    omega = np.zeros([len(l_n), len(k_n), MModes])
     
-    for nn in range(len(k_n)):
-        for ll in range(len(l_n)):
+    for ll in range(len(l_n)):
+        for kk in range(len(k_n)):
             for mm in range(MModes):
-                omega[nn, ll, mm] = Beta * k_n[nn, mm] / (k_n[nn, mm] ** 2 + l_n[ll, mm] ** 2 + Rm[mm] ** -2)
+                omega[ ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)# non-dispersive wave
 
-    with tqdm(total= len(k_n) * len(l_n)* MModes) as pbar:
-        for nn in range(len(k_n)):
-            for ll in range(len(l_n)):
+    with tqdm(total= len(l_n) * len(k_n)* MModes) as pbar:
+        for nn in range(len(l_n)):
+            for ll in range(len(k_n)):
                 for mm in range(MModes):
                     for count in range(len(Iindex)):
                         # change lon, lat to (dlon, dlat = (lon, lat) - mean
                         # conversion to distance 
-                        H0[count, 0] = Psi[0, mm] * np.cos(k_n[nn, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[nn, ll, mm] * T_time[int(Tindex[count])]) 
-                        H0[count, 1] = Psi[0, mm] * np.sin(k_n[nn, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[nn, ll, mm] * T_time[int(Tindex[count])])       
+                        H0[count, 0] = Psi[0, mm] * np.cos(l_n[nn, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[nn, ll, mm] * T_time[int(Tindex[count])]) 
+                        H0[count, 1] = Psi[0, mm] * np.sin(l_n[nn, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[nn, ll, mm] * T_time[int(Tindex[count])])       
 
                     M = 2
 
@@ -155,19 +155,19 @@ def forecast_ssh(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, 
     dlon = lon - lon.mean()
     dlat = lat - lat.mean()
     
-    M = len(k_n) * len(l_n)
+    M = len(l_n) * len(k_n)
     H_cos, H_sin = np.zeros([len(SSHA_vector), M]), np.zeros([len(SSHA_vector), M])
     H_all = np.zeros([len(SSHA_vector), M*2])
-    omega = np.zeros([len(k_n), len(l_n), MModes])
+    omega = np.zeros([len(l_n), len(k_n), MModes])
                 
     nn = 0 
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                omega[kk, ll, mm] =  Beta * k_n[kk, mm] / (k_n[kk, mm] ** 2 + l_n[ll, mm] ** 2 + Rm[mm] ** -2)
+                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[kk, ll, mm] * (T_time[int(Tindex[count])]))
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[kk, ll, mm] * (T_time[int(Tindex[count])]))
+                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * (T_time[int(Tindex[count])]))
+                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * (T_time[int(Tindex[count])]))
                 nn += 1
 
     H_all[:, 0::2] = H_cos 
@@ -204,7 +204,7 @@ def reverse_vector(True_MSLA, SSHA_predicted):
                     count += 1
     return MSLA_est
 
-def build_h_matrix(SSHA_vector, MModes,k_n, l_n, lon, lat, T_time, Psi, Rm):
+def build_h_matrix(SSHA_vector, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
     
     '''
     Build H matrix or basis function for Rossby wave model.
@@ -212,8 +212,8 @@ def build_h_matrix(SSHA_vector, MModes,k_n, l_n, lon, lat, T_time, Psi, Rm):
     Input:
     SSHA_vector: SSH anomalies as a vector,
     Psi (horizontal velocity and pressure structure functions), 
-    k_n (zonal wavenumber), 
-    l_n (latitudional wavenumber), 
+    l_n (zonal wavenumber), 
+    k_n (latitudional wavenumber), 
     frequency, 
     longitude, latitude and time. 
     
@@ -231,19 +231,19 @@ def build_h_matrix(SSHA_vector, MModes,k_n, l_n, lon, lat, T_time, Psi, Rm):
 
     dlon = lon - lon.mean()
     dlat = lat - lat.mean()
-    M = len(k_n) * len(l_n)
+    M = len(l_n) * len(k_n)
     H_cos, H_sin = np.zeros([len(SSHA_vector), M]), np.zeros([len(SSHA_vector), M])
     H_all = np.zeros([len(SSHA_vector), M*2])
-    omega = np.zeros([len(k_n), len(l_n), MModes])
+    omega = np.zeros([len(l_n), len(k_n), MModes])
 
     nn = 0 
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                omega[kk, ll, mm] =  Beta * k_n[kk, mm] / (k_n[kk, mm] ** 2 + l_n[ll, mm] ** 2 + Rm ** -2)
+                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[kk, ll, mm] * T_time[int(Tindex[count])]) 
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(k_n[kk, mm] * dlon[int(Iindex[count])] + l_n[ll, mm] * dlat[int(Jindex[count])] + omega[kk, ll, mm] * T_time[int(Tindex[count])])
+                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[kk, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])]) 
+                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[kk, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])])
                 nn += 1
 
     H_all[:, 0::2] = H_cos 
@@ -384,5 +384,3 @@ def make_error(days, alpha_roll, alpha_base, yswath_index_left, yswath_index_rig
     
 
     return roll_err_valid, baseline_dilation_err_valid, xc1_valid, xc2_valid 
-
-

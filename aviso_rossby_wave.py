@@ -345,12 +345,12 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
         # phase error
         H_neg = np.heaviside(xc - xx, 1) * .25
         H_pos = np.heaviside(xc + xx, 1) * .25
-        #phase_err_left3[:, xx] = alpha[3] * H_neg  
-        #phase_err_left4[:, xx] = alpha[4] * xc * .25 * H_neg 
-        #phase_err_left5[:, xx] = alpha[5] * H_pos 
-        #phase_err_left6[:, xx] = alpha[6] * xc * .25 * H_pos
-        #phase_err_left[:, xx] = phase_err_left3[:, xx] + phase_err_left4[:, xx] + phase_err_left5[:, xx] + phase_err_left6[:, xx]
-        phase_err_left[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
+        phase_err_left3[:, xx] = alpha[3] * H_neg  
+        phase_err_left4[:, xx] = alpha[4] * xc * .25 * H_neg 
+        phase_err_left5[:, xx] = alpha[5] * H_pos 
+        phase_err_left6[:, xx] = alpha[6] * xc * .25 * H_pos
+        phase_err_left[:, xx] = phase_err_left3[:, xx] + phase_err_left4[:, xx] + phase_err_left5[:, xx] + phase_err_left6[:, xx]
+        #phase_err_left[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
 
     # swath 2
     xc1_right, xc2_right = np.ma.masked_all(yswath_index_right.shape), np.ma.masked_all(yswath_index_right.shape)
@@ -368,12 +368,12 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
         # phase error
         H_neg_right[:, xx] = np.heaviside(xc - xc, 1) * .25
         H_pos_right[:, xx] = np.heaviside(xc + xx, 1) * .25
-        #phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx]  
-        #phase_err_right4[:, xx] = alpha[4] * xc * .25 * H_neg_right[:, xx] 
-        #phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] 
-        #phase_err_right6[:, xx] = alpha[6] * xc * .25 * H_pos_right[:, xx]
-        #phase_err_right[:, xx] = phase_err_right3[:, xx] + phase_err_right4[:, xx] + phase_err_right5[:, xx] + phase_err_right6[:, xx]
-        phase_err_right[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
+        phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx]  
+        phase_err_right4[:, xx] = alpha[4] * xc * .25 * H_neg_right[:, xx] 
+        phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] 
+        phase_err_right6[:, xx] = alpha[6] * xc * .25 * H_pos_right[:, xx]
+        phase_err_right[:, xx] = phase_err_right3[:, xx] + phase_err_right4[:, xx] + phase_err_right5[:, xx] + phase_err_right6[:, xx]
+        #phase_err_right[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
 
 
     roll_err_left_masked = np.ma.MaskedArray(roll_err_left, y_mask_left)

@@ -312,11 +312,9 @@ def build_swath(swath_width, x_width, day, lon, lat):
 def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right):
     
     '''
-    alpha = [alpha_timing, alpha_roll, alpha_baseline_dialtion, alpha_phase3, alpha_phase4, alpha_phase5, alpha_phase6]
-    alpha_timing (t), alpha_roll (t), etc. should change with time. 
-    Make correlated errors such as roll errors and baseline dialation errors on the satellite swath.
-    Inpute: days repeated, model parameter of roll errors and baseline dialation errors, swath index for swath 1&2, swath mask for 1&2.
-    Output: valid data points of roll errors and baseline dialation errors, valid coordinates as a distance from the center of the swath.
+    This function models the time-varying error parameters in satellite swath data, including timing error, roll error, baseline dilation error, and phase error. The roll errors and baseline dilation errors are assumed to be correlated and are generated on the satellite swath. The function takes as inputs the number of days the data is repeated, the model parameters of the roll errors and baseline dilation errors, and the swath index for swath 1 and 2, as well as the swath masks.
+
+The output of the function includes the valid data points of the timing error, roll errors, baseline dilation error, and phase error, as well as the valid coordinates as the distance from the center of the swath ("xc1_valid") and the quadratic of that distance ("xc2_valid").
     '''
     import numpy as np
     
@@ -328,6 +326,10 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
     baseline_dilation_err_left, baseline_dilation_err_right = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
     # phase error
     phase_err_left, phase_err_right = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
+    phase_err_left3, phase_err_right3 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
+    phase_err_left4, phase_err_right4 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
+    phase_err_left5, phase_err_right5 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
+    phase_err_left6, phase_err_right6 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
     
     # swath 1
     xc1_left, xc2_left = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_left.shape)
@@ -337,20 +339,19 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
 
     for xx in np.arange(ac):
         xc = (ac-1) / 2
-        xc1_left[:, xx] = (xx - xc) * .25       #.25 degree resolution
-        xc2_left[:, xx] = (xx - xc) ** 2 * .25  #.25 degree resolution
+        xc1_left[:, xx] = (xx - xc) * .25     #.25 degree resolution
+        xc2_left[:, xx] = (xx - xc)  ** 2 * .25
         timing_err_left[:, xx] = alpha[0] #  * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
         roll_err_left[:, xx] = alpha[1] * xc1_left[:, xx]  #  alpha[1] == alpha_roll, alpha[1] * X^1
         baseline_dilation_err_left[:, xx] = alpha[2] * xc2_left[:, xx] #  alpha[2] == alpha_baseline, alpha[2] * X^2
         # phase error
-        H_neg = np.heaviside(xc - xx, 1) * .25
-        H_pos = np.heaviside(xc + xx, 1) * .25
+        H_neg = np.heaviside(-1 * xc1_left[:, xx], 1) 
+        H_pos = np.heaviside(xc1_left[:, xx], 1)
         phase_err_left3[:, xx] = alpha[3] * H_neg  
-        phase_err_left4[:, xx] = alpha[4] * xc * .25 * H_neg 
+        phase_err_left4[:, xx] = alpha[4] * xc1_left[:, xx]* H_neg 
         phase_err_left5[:, xx] = alpha[5] * H_pos 
-        phase_err_left6[:, xx] = alpha[6] * xc * .25 * H_pos
+        phase_err_left6[:, xx] = alpha[6] * xc1_left[:, xx] * H_pos
         phase_err_left[:, xx] = phase_err_left3[:, xx] + phase_err_left4[:, xx] + phase_err_left5[:, xx] + phase_err_left6[:, xx]
-        #phase_err_left[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
 
     # swath 2
     xc1_right, xc2_right = np.ma.masked_all(yswath_index_right.shape), np.ma.masked_all(yswath_index_right.shape)
@@ -360,20 +361,19 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
 
     for xx in np.arange(ac):
         xc = (ac-1) / 2
-        xc1_right[:, xx] = (xx - xc) * .25      #.25 degree resolution, 1deg longitude ~ 85km * .85e5 
-        xc2_right[:, xx] = (xx - xc) ** 2 * .25  #.25 degree resolution
+        xc1_right[:, xx] = (xx - xc) * .25      #.25 degree resolution, 1deg longitude ~ 85km * .85e5
+        xc2_right[:, xx] = (xx - xc)  ** 2 * .25  #.25 degree resolution
         timing_err_right[:, xx] = alpha[0] #* xc1_right[:, xx] # alpha[0] == alpha_timing
         roll_err_right[:, xx] = alpha[1] * xc1_right[:, xx]    
         baseline_dilation_err_right[:, xx] = alpha[2] * xc2_right[:, xx]
         # phase error
-        H_neg_right[:, xx] = np.heaviside(xc - xc, 1) * .25
-        H_pos_right[:, xx] = np.heaviside(xc + xx, 1) * .25
+        H_neg_right[:, xx] = np.heaviside(-1 * xc1_right[:, xx], 1)
+        H_pos_right[:, xx] = np.heaviside(xc1_right[:, xx], 1) 
         phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx]  
-        phase_err_right4[:, xx] = alpha[4] * xc * .25 * H_neg_right[:, xx] 
+        phase_err_right4[:, xx] = alpha[4] * xc1_right[:, xx] * H_neg_right[:, xx]
         phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] 
-        phase_err_right6[:, xx] = alpha[6] * xc * .25 * H_pos_right[:, xx]
+        phase_err_right6[:, xx] = alpha[6] * xc1_right[:, xx] * H_pos_right[:, xx]
         phase_err_right[:, xx] = phase_err_right3[:, xx] + phase_err_right4[:, xx] + phase_err_right5[:, xx] + phase_err_right6[:, xx]
-        #phase_err_right[:, xx] = (alpha[3] * H_neg) + (alpha[4] * xc1_left[:, xx] * H_neg) + (alpha[5]  * H_pos) + (alpha[6]  * xc1_left[:, xx]) * H_pos
 
 
     roll_err_left_masked = np.ma.MaskedArray(roll_err_left, y_mask_left)
@@ -422,98 +422,6 @@ def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, 
     
     
     return timing_err_valid, roll_err_valid, baseline_dilation_err_valid, phase_err_valid, xc1_valid, xc2_valid 
-
-
-def make_error_2errs(days, alpha_roll, alpha_base, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right):
-    
-    '''
-    alpha = [alpha_timing, alpha_roll, alpha_baseline_dialtion, alpha_phase3, alpha_phase4, alpha_phase5, alpha_phase6]
-    alpha_timing (t), alpha_roll (t), etc. should change with time. 
-    Make correlated errors such as roll errors and baseline dialation errors on the satellite swath.
-    Inpute: days repeated, model parameter of roll errors and baseline dialation errors, swath index for swath 1&2, swath mask for 1&2.
-    Output: valid data points of roll errors and baseline dialation errors, valid coordinates as a distance from the center of the swath.
-    '''
-    
-    import numpy as np
-    
-    # timing error
-    timing_err_left = np.ma.masked_all(yswath_index_left.shape)
-    timing_err_right = np.ma.masked_all(yswath_index_right.shape)
-    
-    # Roll error
-    roll_err_left = np.ma.masked_all(yswath_index_left.shape)
-    roll_err_right = np.ma.masked_all(yswath_index_right.shape)
-
-    # Baseline dilation error
-    baseline_dilation_err_left = np.ma.masked_all(yswath_index_left.shape)
-    baseline_dilation_err_right = np.ma.masked_all(yswath_index_right.shape)
-    
-    # phase error
-    # H_neg = np.heaviside(-x + xc, 1)
-    # H_pos = np.heaviside(x + xc, 1)
-    # phase_err_left = (alpha[2] + alpha[3] * x) * H_neg + (alpha[4] + alpha[5] * x) * H_pos
-    phase_err_left = np.ma.masked_all(yswath_index_left.shape)
-    phase_err_right = np.ma.masked_all(yswath_index_right.shape)
-    
-    # swath 1
-
-    xc1_left = np.ma.masked_all(yswath_index_left.shape)
-    xc2_left = np.ma.masked_all(yswath_index_left.shape)
-
-    al, ac = roll_err_left.shape
-
-    for xx in np.arange(ac):
-        xc1_left[:, xx] = (xx - (ac-1)/2) * .25       #.25 degree resolution
-        xc2_left[:, xx] = (xx - (ac-1)/2) ** 2 * .25  #.25 degree resolution
-        roll_err_left[:, xx] = alpha_roll * xc1_left[:, xx]    
-        baseline_dilation_err_left[:, xx] = alpha_base * xc2_left[:, xx]
-
-    # swath 2
-    xc1_right = np.ma.masked_all(yswath_index_right.shape)
-    xc2_right = np.ma.masked_all(yswath_index_right.shape)
-
-    al, ac = roll_err_right.shape
-
-    for xx in np.arange(ac):
-        xc1_right[:, xx] = (xx - (ac-1)/2) * .25      #.25 degree resolution, 1deg longitude ~ 85km * .85e5 
-        xc2_right[:, xx] = (xx - (ac-1)/2) ** 2 * .25  #.25 degree resolution
-        #H_neg = np.heaviside(-x + xc, 1) * .25
-        #H_pos = np.heaviside(x + xc, 1) * .25
-        roll_err_right[:, xx] = alpha_roll * xc1_right[:, xx]    
-        baseline_dilation_err_right[:, xx] = alpha_base * xc2_right[:, xx]
-        #phase_err_right = (alpha[2] + alpha[3] * x) * H_neg + (alpha[4] + alpha[5] * x) * H_pos
-
-    roll_err_left_masked = np.ma.MaskedArray(roll_err_left, y_mask_left)
-    roll_err_right_masked = np.ma.MaskedArray(roll_err_right, y_mask_right)
-    baseline_dilation_err_left_masked = np.ma.MaskedArray(baseline_dilation_err_left, y_mask_left)
-    baseline_dilation_err_right_masked = np.ma.MaskedArray(baseline_dilation_err_right, y_mask_right)
-    xc1_left_masked = np.ma.MaskedArray(xc1_left, y_mask_left)
-    xc2_left_masked = np.ma.MaskedArray(xc2_left, y_mask_left)
-    xc1_right_masked = np.ma.MaskedArray(xc1_right, y_mask_right)
-    xc2_right_masked = np.ma.MaskedArray(xc2_right, y_mask_right)
-
-    roll_err_left_valid = roll_err_left_masked.compressed() # retrieve the valid data 
-    roll_err_right_valid = roll_err_right_masked.compressed() # retrieve the valid data 
-    baseline_dilation_err_left_valid = baseline_dilation_err_left_masked.compressed() # retrieve the valid data 
-    baseline_dilation_err_right_valid = baseline_dilation_err_right_masked.compressed() # retrieve the valid data 
-    xc1_left_valid = xc1_left_masked.compressed() # retrieve the valid data 
-    xc2_left_valid = xc2_left_masked.compressed() # retrieve the valid data 
-    xc1_right_valid = xc1_right_masked.compressed() # retrieve the valid data 
-    xc2_right_valid = xc2_right_masked.compressed() # retrieve the valid data 
-    
-    # repeat the roll error "days" times
-    roll_err_valid_index = np.append(roll_err_left_valid, roll_err_right_valid) 
-    baseline_dilation_err_index = np.append(baseline_dilation_err_left_valid, baseline_dilation_err_right_valid) 
-    xc1_index = np.append(xc1_left_valid, xc1_right_valid)
-    xc2_index = np.append(xc2_left_valid, xc2_right_valid)
-
-    roll_err_valid = np.repeat(roll_err_valid_index, len(days)) 
-    baseline_dilation_err_valid = np.repeat(baseline_dilation_err_index, len(days)) # repeat the baseline dilation error "days" times
-    xc1_valid = np.repeat(xc1_index, len(days))
-    xc2_valid = np.repeat(xc2_index, len(days))
-    
-
-    return roll_err_valid, baseline_dilation_err_valid, xc1_valid, xc2_valid 
 
 
 

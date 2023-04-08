@@ -330,45 +330,50 @@ The output of the function includes the valid data points of the timing error, r
     phase_err_left4, phase_err_right4 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
     phase_err_left5, phase_err_right5 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
     phase_err_left6, phase_err_right6 = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_right.shape)
+    al, ac = roll_err_left.shape
+    xc = (ac-1) / 2
     
     # swath 1
     xc1_left, xc2_left = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_left.shape)
     H_neg_left, H_pos_left = np.ma.masked_all(yswath_index_left.shape), np.ma.masked_all(yswath_index_left.shape)
-    
-    al, ac = roll_err_left.shape
 
     for xx in np.arange(ac):
-        xc = (ac-1) / 2
-        xc1_left[:, xx] = (xx - xc) * .25     #.25 degree resolution
-        xc2_left[:, xx] = (xx - xc)  ** 2 * .25
-        timing_err_left[:, xx] = alpha[0] #  * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
-        roll_err_left[:, xx] = alpha[1] * xc1_left[:, xx]  #  alpha[1] == alpha_roll, alpha[1] * X^1
+        #print(xx)
+        xc1_left[:, xx] = (xx - xc)  #* .25     #.25 degree resolution
+        xc2_left[:, xx] = (xx - xc)  ** 2  #* .25
+        # timing error = alpha[0] * X^0 
+        timing_err_left[:, xx] = alpha[0] # * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
+        # roll error = alpha[1] * X^1
+        roll_err_left[:, xx] = alpha[1] * xc1_left[:, xx]  # alpha[1] == alpha_roll, alpha[1] * X^1
+        # baseline dialation error = alpha[2] * X^2
         baseline_dilation_err_left[:, xx] = alpha[2] * xc2_left[:, xx] #  alpha[2] == alpha_baseline, alpha[2] * X^2
         # phase error
-        H_neg = np.heaviside(-1 * xc1_left[:, xx], 1) 
-        H_pos = np.heaviside(xc1_left[:, xx], 1)
-        phase_err_left3[:, xx] = alpha[3] * H_neg  
-        phase_err_left4[:, xx] = alpha[4] * xc1_left[:, xx]* H_neg 
-        phase_err_left5[:, xx] = alpha[5] * H_pos 
-        phase_err_left6[:, xx] = alpha[6] * xc1_left[:, xx] * H_pos
+        H_neg_left = np.heaviside(-1 * xc1_left[:, xx], 1) 
+        H_pos_left = np.heaviside(xc1_left[:, xx], 1)
+        phase_err_left3[:, xx] = alpha[3] * H_neg_left  
+        phase_err_left4[:, xx] = alpha[4] * xc1_left[:, xx] * H_neg_left
+        phase_err_left5[:, xx] = alpha[5] * H_pos_left 
+        phase_err_left6[:, xx] = alpha[6] * xc1_left[:, xx] * H_pos_left
+        #print(H_neg_left, H_pos_left, xc1_left[:, xx], phase_err_left3[:, xx], phase_err_left4[:, xx], phase_err_left5[:, xx], phase_err_left6[:, xx])
         phase_err_left[:, xx] = phase_err_left3[:, xx] + phase_err_left4[:, xx] + phase_err_left5[:, xx] + phase_err_left6[:, xx]
 
     # swath 2
     xc1_right, xc2_right = np.ma.masked_all(yswath_index_right.shape), np.ma.masked_all(yswath_index_right.shape)
     H_neg_right, H_pos_right = np.ma.masked_all(yswath_index_right.shape), np.ma.masked_all(yswath_index_right.shape)
 
-    al, ac = roll_err_right.shape
-
     for xx in np.arange(ac):
-        xc = (ac-1) / 2
-        xc1_right[:, xx] = (xx - xc) * .25      #.25 degree resolution, 1deg longitude ~ 85km * .85e5
-        xc2_right[:, xx] = (xx - xc)  ** 2 * .25  #.25 degree resolution
+        xc1_right[:, xx] = (xx - xc) #* .25      #.25 degree resolution, 1deg longitude ~ 85km * .85e5
+        xc2_right[:, xx] = (xx - xc)  ** 2 # * .25  #.25 degree resolution
+        # timing error = alpha[0] * X^0 
         timing_err_right[:, xx] = alpha[0] #* xc1_right[:, xx] # alpha[0] == alpha_timing
-        roll_err_right[:, xx] = alpha[1] * xc1_right[:, xx]    
+        # roll error = alpha[1] * X^1
+        roll_err_right[:, xx] = alpha[1] * xc1_right[:, xx]
+        # baseline dialation error
         baseline_dilation_err_right[:, xx] = alpha[2] * xc2_right[:, xx]
-        # phase error
+        # phase error = alpha[2] * X^2
         H_neg_right[:, xx] = np.heaviside(-1 * xc1_right[:, xx], 1)
         H_pos_right[:, xx] = np.heaviside(xc1_right[:, xx], 1) 
+        # phase error
         phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx]  
         phase_err_right4[:, xx] = alpha[4] * xc1_right[:, xx] * H_neg_right[:, xx]
         phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] 
@@ -411,11 +416,11 @@ The output of the function includes the valid data points of the timing error, r
     xc1_index = np.append(xc1_left_valid, xc1_right_valid)
     xc2_index = np.append(xc2_left_valid, xc2_right_valid)
     
-    # repeat errors "days" times
+    # repeat errors for "days"
 
     roll_err_valid = np.repeat(roll_err_valid_index, len(days))
     timing_err_valid = np.repeat(timing_err_valid_index, len(days)) 
-    baseline_dilation_err_valid = np.repeat(baseline_dilation_err_index, len(days)) # repeat the baseline dilation error "days" times
+    baseline_dilation_err_valid = np.repeat(baseline_dilation_err_index, len(days)) 
     phase_err_valid = np.repeat(phase_err_valid_index, len(days)) 
     xc1_valid = np.repeat(xc1_index, len(days))
     xc2_valid = np.repeat(xc2_index, len(days))

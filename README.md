@@ -9,4 +9,6 @@ Output: rossby_wave_estimate_2016-04-01_720waves.nc: Data sample of the selected
 
 CER102_aviso_inversion_swath_no_error.ipynb: AVISO Inversion with all data and swath data, no error
 
-CER103_aviso_inversion_swath_1vs2_step.ipynb: AVISO data assimilation with correlated error reduction, comparing 1-step and 2-step approach.
+CER103_aviso_inversion_swath_1vs2_step.ipynb: AVISO data assimilation with correlated error reduction with two error terms, comparing 1-step and 2-step approach.
+
+CER103_aviso_swath_1step.ipynb: AVISO data assimilation with correlated error reduction with four error terms.

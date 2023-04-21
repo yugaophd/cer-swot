@@ -52,7 +52,7 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
     for ll in range(len(l_n)):
         for kk in range(len(k_n)):
             for mm in range(MModes):
-                omega[ ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)# non-dispersive wave
+                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)# non-dispersive wave
 
     with tqdm(total= len(l_n) * len(k_n)* MModes) as pbar:
         for nn in range(len(l_n)):
@@ -115,8 +115,7 @@ def inversion(Y, H_v, P_over_R):
     
     return amp, Y_estimated
 
-
-def forecast_ssh(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
+def forecast_ssh(timestamp, amp, MSLA, H_all, T_time):
     
     '''
     Make SSH predictions with the estimated Rossby wave amplutudes.
@@ -128,7 +127,6 @@ def forecast_ssh(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, 
     from numpy import linalg as LA
     from scipy import linalg
     
-
     time_vector = np.zeros(MSLA.size)
     lon_vector, lat_vector = np.zeros(MSLA.size),np.zeros(MSLA.size)
     Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
@@ -140,37 +138,7 @@ def forecast_ssh(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, 
             for tt in range(MSLA.shape[2]):
                 if(MSLA[ii, jj, tt] != np.nan): 
                     SSHA_vector[count] = MSLA[ii, jj, tt]
-                    Iindex[count], Jindex[count] = ii, jj
                     count = count + 1
-    
-    Tindex = np.repeat(timestamp, len(SSHA_vector))
-    
-    Phi0 = lat.mean() # central latitude (φ0)
-    Omega = 7.27e-5 # Ω is the angular speed of the earth
-    Earth_radius = 6.371e6/1e5 # meters
-    Beta = 2 * Omega * np.cos(Phi0) / Earth_radius # Convert to degree!
-    f0 = 2 * Omega * np.sin(Phi0) #1.0313e-4 # 45 N
-
-    dlon = lon - lon.mean()
-    dlat = lat - lat.mean()
-    
-    M = len(l_n) * len(k_n)
-    H_cos, H_sin = np.zeros([len(SSHA_vector), M]), np.zeros([len(SSHA_vector), M])
-    H_all = np.zeros([len(SSHA_vector), M*2])
-    omega = np.zeros([len(l_n), len(k_n), MModes])
-                
-    nn = 0 
-    for kk in range(len(k_n)):
-        for ll in range(len(l_n)):
-            for mm in range(MModes):
-                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
-                for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * (T_time[int(Tindex[count])]))
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * (T_time[int(Tindex[count])]))
-                nn += 1
-
-    H_all[:, 0::2] = H_cos 
-    H_all[:, 1::2] = H_sin
 
     SSHA_predicted = np.matmul(H_all, amp)
 
@@ -179,9 +147,10 @@ def forecast_ssh(timestamp, amp, MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, 
 
     # evaluate skill (1- rms_residual/rms_ssha_vector) and store the skill
     # skill value nn, ll, mm, = skill value
-    variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
+    #variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
+    residual_iter = np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
     
-    return SSHA_predicted, SSHA_vector, variance_explained_iter
+    return SSHA_predicted, SSHA_vector, residual_iter
 
 
 def reverse_vector(True_MSLA, SSHA_predicted):
@@ -192,8 +161,8 @@ def reverse_vector(True_MSLA, SSHA_predicted):
     
     import numpy as np
     
-    
     MSLA_est = np.zeros(True_MSLA.shape)
+    
     count = 0
     for ii in range(True_MSLA.shape[0]):
         for jj in range(True_MSLA.shape[1]):
@@ -201,9 +170,10 @@ def reverse_vector(True_MSLA, SSHA_predicted):
                 if(True_MSLA[ii, jj, tt] != np.nan):
                     MSLA_est[ii, jj, tt] = SSHA_predicted[count]
                     count += 1
+                    
     return MSLA_est
 
-def build_h_matrix(SSHA_vector, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
+def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
     
     '''
     Build H matrix or basis function for Rossby wave model.
@@ -231,20 +201,31 @@ def build_h_matrix(SSHA_vector, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
     dlon = lon - lon.mean()
     dlat = lat - lat.mean()
     M = len(l_n) * len(k_n)
-    H_cos, H_sin = np.zeros([len(SSHA_vector), M]), np.zeros([len(SSHA_vector), M])
-    H_all = np.zeros([len(SSHA_vector), M*2])
+    H_cos, H_sin = np.zeros([MSLA.size, M]), np.zeros([MSLA.size, M])
+    H_all = np.zeros([MSLA.size, M*2])
     omega = np.zeros([len(l_n), len(k_n), MModes])
+    Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
+    SSHA_vector = np.zeros(MSLA.size)
+    
+    count = 0
+    for tt in range(MSLA.shape[2]):
+        for ii in range(MSLA.shape[0]):
+            for jj in range(MSLA.shape[1]):
+                SSHA_vector[count] = MSLA[ii, jj, tt]
+                Iindex[count], Jindex[count], Tindex[count] = int(ii), int(jj), int(tt)
+                count = count + 1
 
     nn = 0 
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
+                omega[ll, kk, mm] =  -1 * Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[kk, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])]) 
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[kk, mm] * dlon[int(Iindex[count])] + k_n[ll, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])])
+                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])]) 
+                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])])
                 nn += 1
-
+                
+    
     H_all[:, 0::2] = H_cos 
     H_all[:, 1::2] = H_sin
     
@@ -363,20 +344,20 @@ The output of the function includes the valid data points of the timing error, r
     for xx in np.arange(ac):
         xc1_right[:, xx] = (xx - xc) #* .25 #.25 degree resolution, 1deg longitude ~ 85km * .85e5
         xc2_right[:, xx] = (xx - xc)  ** 2  # * .25  #.25 degree resolution
-        # timing error = alpha[0] * X^0 
+        # timing error = alpha[0] * X^0 #IND = -7
         timing_err_right[:, xx] = alpha[0] # * xc1_right[:, xx] # alpha[0] == alpha_timing
-        # roll error = alpha[1] * X^1
+        # roll error = alpha[1] * X^1 #IND = -6
         roll_err_right[:, xx] = alpha[1] * xc1_right[:, xx]
-        # baseline dialation error
+        # baseline dialation error # -5
         baseline_dilation_err_right[:, xx] = alpha[2] * xc2_right[:, xx]
         # phase error = alpha[2] * X^2
         H_neg_right[:, xx] = np.heaviside(-1 * xc1_right[:, xx], 1)
         H_pos_right[:, xx] = np.heaviside(xc1_right[:, xx], 1) 
         # phase error
-        phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx]  
-        phase_err_right4[:, xx] = alpha[4] * xc1_right[:, xx] * H_neg_right[:, xx]
-        phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] 
-        phase_err_right6[:, xx] = alpha[6] * xc1_right[:, xx] * H_pos_right[:, xx]
+        phase_err_right3[:, xx] = alpha[3] * H_neg_right[:, xx] # IND =-4   
+        phase_err_right4[:, xx] = alpha[4] * xc1_right[:, xx] * H_neg_right[:, xx] # IND =-3
+        phase_err_right5[:, xx] = alpha[5] * H_pos_right[:, xx] # -2
+        phase_err_right6[:, xx] = alpha[6] * xc1_right[:, xx] * H_pos_right[:, xx] # IND = -1
         phase_err_right[:, xx] = phase_err_right3[:, xx] + phase_err_right4[:, xx] + phase_err_right5[:, xx] + phase_err_right6[:, xx]
 
 

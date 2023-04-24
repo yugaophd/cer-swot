@@ -167,9 +167,9 @@ def reverse_vector(True_MSLA, SSHA_predicted):
     for ii in range(True_MSLA.shape[0]):
         for jj in range(True_MSLA.shape[1]):
             for tt in range(True_MSLA.shape[2]):
-                if(True_MSLA[ii, jj, tt] != np.nan):
-                    MSLA_est[ii, jj, tt] = SSHA_predicted[count]
-                    count += 1
+                #if(True_MSLA[ii, jj, tt] != np.nan):
+                MSLA_est[ii, jj, tt] = SSHA_predicted[count]
+                count += 1
                     
     return MSLA_est
 

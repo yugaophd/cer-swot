@@ -115,7 +115,7 @@ def inversion(Y, H_v, P_over_R):
     
     return amp, Y_estimated
 
-def forecast_ssh(timestamp, amp, MSLA, H_all, T_time):
+def forecast_ssh(MSLA, amp, H_all):
     
     '''
     Make SSH predictions with the estimated Rossby wave amplutudes.
@@ -143,12 +143,12 @@ def forecast_ssh(timestamp, amp, MSLA, H_all, T_time):
     SSHA_predicted = np.matmul(H_all, amp)
 
     # calculate residual variance
-    residual_iter = SSHA_vector - SSHA_predicted
+    residual = SSHA_vector - SSHA_predicted
 
     # evaluate skill (1- rms_residual/rms_ssha_vector) and store the skill
     # skill value nn, ll, mm, = skill value
-    #variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
-    residual_iter = np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
+    # variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
+    residual_iter = np.sqrt(np.mean(residual**2)) / np.sqrt(np.mean(SSHA_vector**2))
     
     return SSHA_predicted, SSHA_vector, residual_iter
 
@@ -173,7 +173,7 @@ def reverse_vector(True_MSLA, SSHA_predicted):
                     
     return MSLA_est
 
-def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
+def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
     
     '''
     Build H matrix or basis function for Rossby wave model.
@@ -194,15 +194,15 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
     
     Phi0 = lat.mean() # central latitude (φ0)
     Omega = 7.27e-5 # Ω is the angular speed of the earth
-    Earth_radius = 6.371e6 /1e5 # meters
+    Earth_radius = 6.371e6 / 1e5 # meters
     Beta = 2 * Omega * np.cos(Phi0) / Earth_radius 
-    f0 = 2 * Omega * np.sin(Phi0) #1.0313e-4 # 45 N
+    f0 = 2 * Omega * np.sin(Phi0) 
 
     dlon = lon - lon.mean()
     dlat = lat - lat.mean()
     M = len(l_n) * len(k_n)
     H_cos, H_sin = np.zeros([MSLA.size, M]), np.zeros([MSLA.size, M])
-    H_all = np.zeros([MSLA.size, M*2])
+    H_all = np.zeros([MSLA.size, M * 2])
     omega = np.zeros([len(l_n), len(k_n), MModes])
     Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
     SSHA_vector = np.zeros(MSLA.size)
@@ -219,10 +219,10 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm):
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                omega[ll, kk, mm] =  -1 * Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
+                omega[ll, kk, mm] =   Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])]) 
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(Tindex[count])])
+                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
+                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
                 nn += 1
                 
     
@@ -409,4 +409,135 @@ The output of the function includes the valid data points of the timing error, r
     return timing_err_valid, roll_err_valid, baseline_dilation_err_valid, phase_err_valid, phase_err_left3, phase_err_left4, phase_err_left5, phase_err_left6, xc1_valid, xc2_valid 
 
 
+def make_error_over_time(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right):
+    
+    '''
+    This function models the time-varying error parameters in satellite swath data, including timing error, roll error, baseline dilation error, and phase error. The roll errors and baseline dilation errors are assumed to be correlated and are generated on the satellite swath. The function takes as inputs the number of days the data is repeated, the model parameters of the roll errors and baseline dilation errors, and the swath index for swath 1 and 2, as well as the swath masks.
+
+The output of the function includes the valid data points of the timing error, roll errors, baseline dilation error, and phase error, as well as the valid coordinates as the distance from the center of the swath ("xc1_valid") and the quadratic of that distance ("xc2_valid").
+    '''
+    import numpy as np
+    
+    Tdim, ALdim, ACdim = len(days), yswath_index_left.shape[0], yswath_index_left.shape[1] # time dimension, along-track and across-track dimesion respectively
+    print(Tdim, ALdim, ACdim)
+    # timing error
+    timing_err_left, timing_err_right = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    # Roll error
+    roll_err_left, roll_err_right = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    # Baseline dilation error
+    baseline_dilation_err_left, baseline_dilation_err_right = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    # phase error
+    phase_err_left, phase_err_right = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    phase_err_left3, phase_err_right3 = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    phase_err_left4, phase_err_right4 = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    phase_err_left5, phase_err_right5 = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    phase_err_left6, phase_err_right6 = np.ma.masked_all([Tdim, ALdim, ACdim]), np.ma.masked_all([Tdim, ALdim, ACdim])
+    # al, ac = ALdim, ACdim
+    xc = (ACdim - 1) / 2
+    
+    # swath 1
+    xc1_left, xc2_left = np.ma.masked_all([ALdim, ACdim]), np.ma.masked_all([ALdim, ACdim])
+    H_neg_left, H_pos_left = np.ma.masked_all( [ALdim, ACdim]), np.ma.masked_all( [ALdim, ACdim])
+
+    for xx in np.arange(ACdim):
+        for tt in np.arange(Tdim):
+            #print(xx)
+            xc1_left[:, xx] = (xx - xc)  #* .25     #.25 degree resolution
+            xc2_left[:, xx] = (xx - xc)  ** 2  #* .25
+            # timing error = alpha[0] * X^0 
+            timing_err_left[tt, :, xx] = alpha[0, tt] # * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
+            # roll error = alpha[1] * X^1
+            roll_err_left[tt, :, xx] = alpha[1, tt] * xc1_left[:, xx]  # alpha[1] == alpha_roll, alpha[1] * X^1
+            # baseline dialation error = alpha[2] * X^2
+            baseline_dilation_err_left[tt, :, xx] = alpha[2, tt] * xc2_left[:, xx] #  alpha[2] == alpha_baseline, alpha[2] * X^2
+            # phase error
+            H_neg_left = np.heaviside(-1 * xc1_left[:, xx], 1) 
+            H_pos_left = np.heaviside(xc1_left[:, xx], 1)
+            phase_err_left3[tt, :, xx] = alpha[3, tt] * H_neg_left  
+            phase_err_left4[tt, :, xx] = alpha[4, tt] * xc1_left[:, xx] * H_neg_left
+            phase_err_left5[tt, :, xx] = alpha[5, tt] * H_pos_left 
+            phase_err_left6[tt, :, xx] = alpha[6, tt] * xc1_left[:, xx] * H_pos_left
+            phase_err_left[tt, :, xx] = phase_err_left3[tt, :, xx] + phase_err_left4[tt, :, xx] + phase_err_left5[tt, :, xx] + phase_err_left6[tt, :, xx]
+
+    # swath 2
+    xc1_right, xc2_right = np.ma.masked_all([ALdim, ACdim]), np.ma.masked_all([ ALdim, ACdim])
+    H_neg_right, H_pos_right = np.ma.masked_all([ALdim, ACdim]), np.ma.masked_all([ALdim, ACdim])
+
+    for xx in np.arange(ACdim):
+        for tt in np.arange(Tdim):
+            xc1_right[:, xx] = (xx - xc) #* .25 #.25 degree resolution, 1deg longitude ~ 85km * .85e5
+            xc2_right[:, xx] = (xx - xc)  ** 2  # * .25  #.25 degree resolution
+            # timing error = alpha[0] * X^0 #IND = -7
+            timing_err_right[tt, :, xx] = alpha[0, tt] # * xc1_right[:, xx] # alpha[0] == alpha_timing
+            # roll error = alpha[1] * X^1 #IND = -6
+            roll_err_right[tt, :, xx] = alpha[1, tt] * xc1_right[:, xx]
+            # baseline dialation error # -5
+            baseline_dilation_err_right[tt, :, xx] = alpha[2, tt] * xc2_right[:, xx]
+            # phase error = alpha[2] * X^2
+            H_neg_right[:, xx] = np.heaviside(-1 * xc1_right[:, xx], 1)
+            H_pos_right[:, xx] = np.heaviside(xc1_right[:, xx], 1) 
+            # phase error
+            phase_err_right3[tt, :, xx] = alpha[3, tt] * H_neg_right[:, xx] # IND =-4   
+            phase_err_right4[tt, :, xx] = alpha[4, tt] * xc1_right[:, xx] * H_neg_right[:, xx] # IND =-3
+            phase_err_right5[tt, :, xx] = alpha[5, tt] * H_pos_right[:, xx] # -2
+            phase_err_right6[tt, :, xx] = alpha[6, tt] * xc1_right[:, xx] * H_pos_right[:, xx] # IND = -1
+            phase_err_right[tt, :, xx] = phase_err_right3[tt, :, xx] + phase_err_right4[tt, :, xx] + phase_err_right5[tt, :, xx] + phase_err_right6[tt, :, xx]
+
+
+    valid_points = y_mask_left.size + y_mask_right.size
+    #print(valid_points)
+    timing_err_valid_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    roll_err_valid_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    baseline_dilation_err_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    phase_err_valid_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    xc1_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    xc2_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    
+    for tt in range(Tdim):
+        roll_err_left_masked = np.ma.MaskedArray(roll_err_left[tt], y_mask_left)
+        roll_err_right_masked = np.ma.MaskedArray(roll_err_right[tt], y_mask_right)
+        timing_err_left_masked = np.ma.MaskedArray(timing_err_left[tt], y_mask_left)
+        timing_err_right_masked = np.ma.MaskedArray(timing_err_right[tt], y_mask_right)
+        baseline_dilation_err_left_masked = np.ma.MaskedArray(baseline_dilation_err_left[tt], y_mask_left)
+        baseline_dilation_err_right_masked = np.ma.MaskedArray(baseline_dilation_err_right[tt], y_mask_right)
+        phase_err_left_masked = np.ma.MaskedArray(phase_err_left[tt], y_mask_left)
+        phase_err_right_masked = np.ma.MaskedArray(phase_err_right[tt], y_mask_right)
+        xc1_left_masked = np.ma.MaskedArray(xc1_left, y_mask_left)
+        xc2_left_masked = np.ma.MaskedArray(xc2_left, y_mask_left)
+        xc1_right_masked = np.ma.MaskedArray(xc1_right, y_mask_right)
+        xc2_right_masked = np.ma.MaskedArray(xc2_right, y_mask_right)
+
+        timing_err_left_valid = timing_err_left_masked.compressed() # retrieve the valid data 
+        timing_err_right_valid = timing_err_right_masked.compressed() # retrieve the valid data 
+        roll_err_left_valid = roll_err_left_masked.compressed() # retrieve the valid data 
+        roll_err_right_valid = roll_err_right_masked.compressed() # retrieve the valid data 
+        baseline_dilation_err_left_valid = baseline_dilation_err_left_masked.compressed() # retrieve the valid data 
+        baseline_dilation_err_right_valid = baseline_dilation_err_right_masked.compressed() # retrieve the valid data 
+        phase_err_left_valid = phase_err_left_masked.compressed() # retrieve the valid data 
+        phase_err_right_valid = phase_err_right_masked.compressed() # retrieve the valid data     
+        xc1_left_valid = xc1_left_masked.compressed() # retrieve the valid data 
+        xc2_left_valid = xc2_left_masked.compressed() # retrieve the valid data 
+        xc1_right_valid = xc1_right_masked.compressed() # retrieve the valid data 
+        xc2_right_valid = xc2_right_masked.compressed() # retrieve the valid data 
+        
+        if tt == 0: 
+            valid_points = len(timing_err_left_masked.compressed()) + len(timing_err_right_masked.compressed())
+            print(valid_points)
+            timing_err_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+            roll_err_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+            baseline_dilation_err_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+            phase_err_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+            xc1_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+            xc2_valid = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
+    
+        # concat left and right swath
+        timing_err_valid[tt] = np.append(timing_err_left_valid, timing_err_right_valid) 
+        roll_err_valid[tt] = np.append(roll_err_left_valid, roll_err_right_valid) 
+        baseline_dilation_err_valid[tt] = np.append(baseline_dilation_err_left_valid, baseline_dilation_err_right_valid)
+        phase_err_valid[tt] = np.append(phase_err_left_valid, phase_err_right_valid)
+    
+        xc1_valid[tt] = np.append(xc1_left_valid, xc1_right_valid)
+        xc2_valid[tt] = np.append(xc2_left_valid, xc2_right_valid)
+    
+    return timing_err_valid, roll_err_valid, baseline_dilation_err_valid, phase_err_valid, xc1_valid, xc2_valid 
 

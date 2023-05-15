@@ -225,7 +225,6 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
                     H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
                 nn += 1
                 
-    
     H_all[:, 0::2] = H_cos 
     H_all[:, 1::2] = H_sin
     

@@ -52,7 +52,7 @@ def skill_matrix(MSLA, Psi, k_n, l_n, MModes, Rm, lon, lat, T_time):
     for ll in range(len(l_n)):
         for kk in range(len(k_n)):
             for mm in range(MModes):
-                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)# non-dispersive wave
+                omega[ll, kk, mm] =  Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2) # non-dispersive wave
 
     with tqdm(total= len(l_n) * len(k_n)* MModes) as pbar:
         for nn in range(len(l_n)):
@@ -115,6 +115,7 @@ def inversion(Y, H_v, P_over_R):
     
     return amp, Y_estimated
 
+
 def forecast_ssh(MSLA, amp, H_all):
     
     '''
@@ -127,11 +128,16 @@ def forecast_ssh(MSLA, amp, H_all):
     from numpy import linalg as LA
     from scipy import linalg
     
+    # forecast SSH
+    SSHA_predicted = np.matmul(H_all, amp)
+    
     time_vector = np.zeros(MSLA.size)
     lon_vector, lat_vector = np.zeros(MSLA.size),np.zeros(MSLA.size)
     Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
+    
     SSHA_vector = np.zeros(MSLA.size)
     
+    # flatten SSH
     count = 0
     for ii in range(MSLA.shape[0]):
         for jj in range(MSLA.shape[1]):
@@ -140,14 +146,12 @@ def forecast_ssh(MSLA, amp, H_all):
                     SSHA_vector[count] = MSLA[ii, jj, tt]
                     count = count + 1
 
-    SSHA_predicted = np.matmul(H_all, amp)
-
     # calculate residual variance
     residual = SSHA_vector - SSHA_predicted
 
     # evaluate skill (1- rms_residual/rms_ssha_vector) and store the skill
     # skill value nn, ll, mm, = skill value
-    # variance_explained_iter = 1 - np.sqrt(np.mean(residual_iter**2)) / np.sqrt(np.mean(SSHA_vector**2))
+    #
     residual_iter = np.sqrt(np.mean(residual**2)) / np.sqrt(np.mean(SSHA_vector**2))
     
     return SSHA_predicted, SSHA_vector, residual_iter
@@ -172,6 +176,7 @@ def reverse_vector(True_MSLA, SSHA_predicted):
                 count += 1
                     
     return MSLA_est
+
 
 def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
     
@@ -219,7 +224,7 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
     for kk in range(len(k_n)):
         for ll in range(len(l_n)):
             for mm in range(MModes):
-                omega[ll, kk, mm] =   Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
+                omega[ll, kk, mm] = Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
                     H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
                     H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
@@ -229,11 +234,14 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
     H_all[:, 1::2] = H_sin
     
     return H_all
+    
+
 
 def build_swath(swath_width, x_width, day, lon, lat):
     
     '''
-    Make wide swath and return (x, y, t) index.
+     Generate the x, y, t indices for multiple satellite passings over a given swath width and time period. 
+    
     '''
     
     import numpy as np
@@ -248,10 +256,12 @@ def build_swath(swath_width, x_width, day, lon, lat):
     xswath_index_left = np.ma.masked_all([x_width, swath_width])
     for yy in range(swath_width):
         xswath_index_left[:, yy] = xswath_index0
+        
     for xx in range(x_width):
         yswath_index_left[xx] = yswath_index0 + xx
-    yswath_index_left = np.ma.masked_outside(yswath_index_left, 0, len(lat)-1)
-    xswath_index_left = np.ma.masked_outside(xswath_index_left, 0, len(lon)-1)
+        
+    yswath_index_left = np.ma.masked_outside(yswath_index_left, 0, len(lat) - 1)
+    xswath_index_left = np.ma.masked_outside(xswath_index_left, 0, len(lon) - 1)
     y_mask_left = np.ma.getmask(yswath_index_left)
     x_mask_left  = np.ma.getmask(xswath_index_left)
     xswath_index_left = np.ma.MaskedArray(xswath_index_left, y_mask_left)
@@ -263,30 +273,35 @@ def build_swath(swath_width, x_width, day, lon, lat):
     yswath_index1 = np.arange(len(lat) - swath_width, len(lat))
     yswath_index_right = np.ma.masked_all([x_width, swath_width])
     xswath_index_right = np.ma.masked_all([x_width, swath_width])
+
     for yy in range(swath_width):
         xswath_index_right[:, yy] = xswath_index1
+        
     for xx in range(x_width):    
-        yswath_index_right[xx] = yswath_index1 - xx   
-    yswath_index_right = np.ma.masked_outside(yswath_index_right, 0, len(lat)-1)
-    xswath_index_right = np.ma.masked_outside(xswath_index_right, 0, len(lon)-1)
+        yswath_index_right[xx] = yswath_index1 - xx  
+        
+    yswath_index_right = np.ma.masked_outside(yswath_index_right, 0, len(lat) - 1)
+    xswath_index_right = np.ma.masked_outside(xswath_index_right, 0, len(lon) - 1)
     y_mask_right = np.ma.getmask(yswath_index_right)
     x_mask_right = np.ma.getmask(xswath_index_right)
     xswath_index_right = np.ma.MaskedArray(xswath_index_right, y_mask_right)
     yswath_index_right = np.ma.MaskedArray(yswath_index_right, x_mask_right)
 
-    # multiple-day swath
-
+    #yindex = np.tile(np.append(yswath_index_left.compressed().astype(int), yswath_index_right.compressed().astype(int)), len(day))
+    #xindex = np.tile(np.append(xswath_index_left.compressed().astype(int), xswath_index_right.compressed().astype(int)), len(day))    
+    #tindex = np.repeat(day, len(xindex)//len(day))
     yvalid_index = np.append(yswath_index_left.compressed().astype(int), yswath_index_right.compressed().astype(int)) 
     xvalid_index = np.append(xswath_index_left.compressed().astype(int), xswath_index_right.compressed().astype(int))
     
     tindex, xindex, yindex = [], [], []
-    xindex =  np.repeat(xvalid_index, len(day))
-    yindex =  np.repeat(yvalid_index, len(day))
+    xindex =  np.tile(xvalid_index, len(day))
+    yindex =  np.tile(yvalid_index, len(day))
     for dd in day:
-        tmp = np.repeat(dd, len(yvalid_index))
+        tmp = np.tile(dd, len(yvalid_index))
         tindex = np.append(tindex, tmp)
     
     return xindex, yindex, tindex, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right
+
 
 
 def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right):

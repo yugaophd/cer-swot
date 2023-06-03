@@ -304,6 +304,7 @@ def build_swath(swath_width, x_width, day, lon, lat):
 
 
 
+
 def make_error(days, alpha, yswath_index_left, yswath_index_right, y_mask_left, y_mask_right):
     
     '''
@@ -451,7 +452,7 @@ The output of the function includes the valid data points of the timing error, r
     
     # swath 1
     xc1_left, xc2_left = np.ma.masked_all([ALdim, ACdim]), np.ma.masked_all([ALdim, ACdim])
-    H_neg_left, H_pos_left = np.ma.masked_all( [ALdim, ACdim]), np.ma.masked_all( [ALdim, ACdim])
+    H_neg_left, H_pos_left = np.ma.masked_all([ALdim, ACdim]), np.ma.masked_all([ALdim, ACdim])
 
     for xx in np.arange(ACdim):
         for tt in np.arange(Tdim):
@@ -459,18 +460,18 @@ The output of the function includes the valid data points of the timing error, r
             xc1_left[:, xx] = (xx - xc)  #* .25     #.25 degree resolution
             xc2_left[:, xx] = (xx - xc)  ** 2  #* .25
             # timing error = alpha[0] * X^0 
-            timing_err_left[tt, :, xx] = alpha[0, tt] # * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
+            timing_err_left[tt, :, xx] = alpha[tt, 0] # * xc1_left[:, xx] # alpha[0] == alpha_timing, alpha[0] * X^0  
             # roll error = alpha[1] * X^1
-            roll_err_left[tt, :, xx] = alpha[1, tt] * xc1_left[:, xx]  # alpha[1] == alpha_roll, alpha[1] * X^1
+            roll_err_left[tt, :, xx] = alpha[tt, 1] * xc1_left[:, xx]  # alpha[1] == alpha_roll, alpha[1] * X^1
             # baseline dialation error = alpha[2] * X^2
-            baseline_dilation_err_left[tt, :, xx] = alpha[2, tt] * xc2_left[:, xx] #  alpha[2] == alpha_baseline, alpha[2] * X^2
+            baseline_dilation_err_left[tt, :, xx] = alpha[tt, 2] * xc2_left[:, xx] #  alpha[2] == alpha_baseline, alpha[2] * X^2
             # phase error
             H_neg_left = np.heaviside(-1 * xc1_left[:, xx], 1) 
             H_pos_left = np.heaviside(xc1_left[:, xx], 1)
-            phase_err_left3[tt, :, xx] = alpha[3, tt] * H_neg_left  
-            phase_err_left4[tt, :, xx] = alpha[4, tt] * xc1_left[:, xx] * H_neg_left
-            phase_err_left5[tt, :, xx] = alpha[5, tt] * H_pos_left 
-            phase_err_left6[tt, :, xx] = alpha[6, tt] * xc1_left[:, xx] * H_pos_left
+            phase_err_left3[tt, :, xx] = alpha[tt, 3] * H_neg_left  
+            phase_err_left4[tt, :, xx] = alpha[tt, 5] * xc1_left[:, xx] * H_neg_left
+            phase_err_left5[tt, :, xx] = alpha[tt, 5] * H_pos_left 
+            phase_err_left6[tt, :, xx] = alpha[tt, 6] * xc1_left[:, xx] * H_pos_left
             phase_err_left[tt, :, xx] = phase_err_left3[tt, :, xx] + phase_err_left4[tt, :, xx] + phase_err_left5[tt, :, xx] + phase_err_left6[tt, :, xx]
 
     # swath 2
@@ -482,24 +483,23 @@ The output of the function includes the valid data points of the timing error, r
             xc1_right[:, xx] = (xx - xc) #* .25 #.25 degree resolution, 1deg longitude ~ 85km * .85e5
             xc2_right[:, xx] = (xx - xc)  ** 2  # * .25  #.25 degree resolution
             # timing error = alpha[0] * X^0 #IND = -7
-            timing_err_right[tt, :, xx] = alpha[0, tt] # * xc1_right[:, xx] # alpha[0] == alpha_timing
+            timing_err_right[tt, :, xx] = alpha[tt, 0] # * xc1_right[:, xx] # alpha[0] == alpha_timing
             # roll error = alpha[1] * X^1 #IND = -6
-            roll_err_right[tt, :, xx] = alpha[1, tt] * xc1_right[:, xx]
+            roll_err_right[tt, :, xx] = alpha[tt, 1] * xc1_right[:, xx]
             # baseline dialation error # -5
-            baseline_dilation_err_right[tt, :, xx] = alpha[2, tt] * xc2_right[:, xx]
+            baseline_dilation_err_right[tt, :, xx] = alpha[tt, 2] * xc2_right[:, xx]
             # phase error = alpha[2] * X^2
             H_neg_right[:, xx] = np.heaviside(-1 * xc1_right[:, xx], 1)
             H_pos_right[:, xx] = np.heaviside(xc1_right[:, xx], 1) 
             # phase error
-            phase_err_right3[tt, :, xx] = alpha[3, tt] * H_neg_right[:, xx] # IND =-4   
-            phase_err_right4[tt, :, xx] = alpha[4, tt] * xc1_right[:, xx] * H_neg_right[:, xx] # IND =-3
-            phase_err_right5[tt, :, xx] = alpha[5, tt] * H_pos_right[:, xx] # -2
-            phase_err_right6[tt, :, xx] = alpha[6, tt] * xc1_right[:, xx] * H_pos_right[:, xx] # IND = -1
+            phase_err_right3[tt, :, xx] = alpha[tt, 3] * H_neg_right[:, xx] # IND =-4   
+            phase_err_right4[tt, :, xx] = alpha[tt, 4] * xc1_right[:, xx] * H_neg_right[:, xx] # IND =-3
+            phase_err_right5[tt, :, xx] = alpha[tt, 5] * H_pos_right[:, xx] # -2
+            phase_err_right6[tt, :, xx] = alpha[tt, 6] * xc1_right[:, xx] * H_pos_right[:, xx] # IND = -1
             phase_err_right[tt, :, xx] = phase_err_right3[tt, :, xx] + phase_err_right4[tt, :, xx] + phase_err_right5[tt, :, xx] + phase_err_right6[tt, :, xx]
 
 
     valid_points = y_mask_left.size + y_mask_right.size
-    #print(valid_points)
     timing_err_valid_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
     roll_err_valid_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
     baseline_dilation_err_index = np.ma.masked_all([Tdim, valid_points]) # dimensions: time, valid data points
@@ -554,4 +554,5 @@ The output of the function includes the valid data points of the timing error, r
         xc2_valid[tt] = np.append(xc2_left_valid, xc2_right_valid)
     
     return timing_err_valid, roll_err_valid, baseline_dilation_err_valid, phase_err_valid, xc1_valid, xc2_valid 
+
 

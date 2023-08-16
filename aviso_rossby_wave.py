@@ -250,6 +250,7 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
     H_all = np.zeros([MSLA.size, M * 2])
     omega = np.zeros([len(l_n), len(k_n), MModes])
     Iindex, Jindex, Tindex = np.zeros(MSLA.size), np.zeros(MSLA.size), np.zeros(MSLA.size)
+    day_use = np.zeros(MSLA.size)
     SSHA_vector = np.zeros(MSLA.size)
     
     count = 0
@@ -257,6 +258,7 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
         for ii in range(MSLA.shape[0]):
             for jj in range(MSLA.shape[1]):
                 SSHA_vector[count] = MSLA[ii, jj, tt]
+                day_use[count]=day+tt
                 Iindex[count], Jindex[count], Tindex[count] = int(ii), int(jj), int(tt)
                 count = count + 1
 
@@ -266,8 +268,8 @@ def build_h_matrix(MSLA, MModes, k_n, l_n, lon, lat, T_time, Psi, Rm, day):
             for mm in range(MModes):
                 omega[ll, kk, mm] = Beta * k_n[kk, mm] / (l_n[ll, mm] ** 2 + k_n[kk, mm] ** 2 + Rm[mm] ** -2)
                 for count in range(len(Iindex)):
-                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
-                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[day])
+                    H_cos[count, nn] = Psi[0, mm] * np.cos(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(day_use[count])])
+                    H_sin[count, nn] = Psi[0, mm] * np.sin(l_n[ll, mm] * dlon[int(Iindex[count])] + k_n[kk, mm] * dlat[int(Jindex[count])] + omega[ll, kk, mm] * T_time[int(day_use[count])])
                 nn += 1
                 
     H_all[:, 0::2] = H_cos 

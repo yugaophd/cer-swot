@@ -13,4 +13,7 @@ CER103_aviso_inversion_swath_1vs2_step.ipynb: AVISO data assimilation with corre
 
 CER103_aviso_swath_1step.ipynb: AVISO data assimilation with correlated error reduction with four error terms.
 
-Note: change the prefix in pyenv.yml
+CER111: multiday data assimilation with correlated error reduction with four error terms.
+
+CER113: multiday ensemble with correlated error reduction with four error terms.
+

@@ -15,5 +15,5 @@ CER103_aviso_swath_1step.ipynb: AVISO data assimilation with correlated error re
 
 CER111: multiday data assimilation with correlated error reduction with four error terms.
 
-CER111: multiday ensemble with correlated error reduction with four error terms.
+CER113: multiday ensemble with correlated error reduction with four error terms.
 

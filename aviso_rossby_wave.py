@@ -752,3 +752,71 @@ def remap_to_2d_map(tt, Valid_points, lon, lat, ssh_estimated_swath, ssh,  err_e
         #msla_obs[xvalid_index[ii], yvalid_index[ii]] = MSLA_swath[tt * Valid_points : (tt+1) * Valid_points][ii]
 
     return ssh_map, ssh_true, err_map, err_true#, msla_obs
+
+
+
+def build_SWOT_swath(msla, lon, lat, swot_longitude, swot_latitude, day):
+    
+    import numpy as np
+    
+   
+    # Define the bounds for the California Current System (CCS)
+    cc_bounds = {
+        "lon": [360-135, 360-115],
+        "lat": [30, 40]
+    }
+
+    swot_latitude=latitude
+    swot_longitude=longitude
+    # Filter SWOT data points within the CCS bounds
+    valid_swot_mask = (swot_latitude >= cc_bounds["lat"][0]) & (swot_latitude <= cc_bounds["lat"][1]) & \
+                      (swot_longitude >= cc_bounds["lon"][0]) & (swot_longitude <= cc_bounds["lon"][1])
+    #swot_longitude = swot_longitude[valid_swot_mask]
+    #swot_latitude = swot_latitude[valid_swot_mask]
+    
+    lon_bound1a=np.zeros(len(lat))
+    lon_bound1b=np.zeros(len(lat))
+    lon_nadir=np.zeros(len(lat))
+    lon_bound2a=np.zeros(len(lat))
+    lon_bound2b=np.zeros(len(lat))
+
+    #  bounds are set based on fixed grid, assuming 2 50 km swaths, with 20 km between swaths.  
+    #  This discards points at edges of swath
+    # These limits could be adjusted to incorporate more AVISO data
+    index=np.argsort(swot_latitude[:,5])    
+    lon_bound1a=np.interp(lat,swot_latitude[index,5],swot_longitude[index,5])
+    index=np.argsort(swot_latitude[:,30]) 
+    lon_bound1b=np.interp(lat,swot_latitude[index,30],swot_longitude[index,30])
+    index=np.argsort(swot_latitude[:,35]) 
+    lon_nadir=np.interp(lat,swot_latitude[index,35],swot_longitude[index,35])
+    index=np.argsort(swot_latitude[:,40]) 
+    lon_bound2a=np.interp(lat,swot_latitude[index,40],swot_longitude[index,40])
+    index=np.argsort(swot_latitude[:,65]) 
+    lon_bound2b=np.interp(lat,swot_latitude[index,65],swot_longitude[index,65])
+    
+    # Generate a meshgrid from the lon and lat arrays
+    LON, LAT = np.meshgrid(lon, lat)
+    
+    yswath=np.ma.masked_all(msla.shape)
+    xswath=np.ma.masked_all(msla.shape)
+    msla_use=np.ma.masked_all(msla.shape)
+    mask_test=np.ma.MaskedArray(LON,False)
+    yswath=np.ma.MaskedArray(LAT,False)
+    xswath=np.ma.MaskedArray(LON,False)
+    lon_nadir_array=np.transpose(np.tile(lon_nadir,(len(lon),1)))
+    xcross=np.ma.MaskedArray(LON-lon_nadir_array,False)
+
+    for j in range(len(lat)):
+        lontest1=np.logical_and((LON[j,:]>=min(lon_bound1a[j],lon_bound1b[j])),(LON[j,:]<=max(lon_bound1b[j],lon_bound1a[j])))
+        lontest2=np.logical_and(LON[j,:]>=min(lon_bound2a[j],lon_bound2b[j]),LON[j,:]<=max(lon_bound2a[j],lon_bound2b[j]))
+        lontest=np.logical_or(lontest1,lontest2)
+        yswath[j,:] = np.ma.masked_where(lontest, LAT[j,:],copy=True)
+        xswath[j,:] = np.ma.masked_where(lontest, LON[j,:],copy=True)
+        msla_use[j,:] = np.ma.masked_where(~lontest, msla[j,:])
+        xcross[j,:] = np.ma.masked_where(~lontest, xcross[j,:])
+        
+        
+    return xswath,yswath,xcross,msla_use  
+
+
+

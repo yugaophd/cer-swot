@@ -112,6 +112,7 @@ def inversion(Y, H_v, P_over_R):
     HTH = HTH +  P_over_R #, P: uncertainty in model, R: uncertainty in data, actually R_over_P
     
     D = np.matmul(LA.inv(HTH), H_v.T)
+    print(LA.cond(HTH))
     
     #eig, vec = LA.eig(HTH)
     

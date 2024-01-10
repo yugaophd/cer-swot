@@ -5,7 +5,7 @@ The SWOT-CER project focuses on enhancing the accuracy of SWOT (Surface Water an
 
 ## Notebooks and Functions
 
-### CER101b_aviso_forward_model-copy1.ipynb
+### CER101_ccs_forward_model.ipynb
 - **Purpose**: Constructs the forward model Y (ssh) using the Rossby wave model with AVISO data over multiple days.
 - **Input**:
   - AVISO SSH anomalies at 1-day intervals in the California Current System (`aviso_msla_ccs_5d.nc`).
@@ -17,7 +17,7 @@ The SWOT-CER project focuses on enhancing the accuracy of SWOT (Surface Water an
 ### CER111
 - **Function**: Multiday data assimilation emphasizing correlated error reduction with four error terms.
 
-### CER113
+### CER113 and CER115
 - **Function**: Multiday ensemble analysis for correlated error reduction with four error terms.
 
 ## Contribution and Usage

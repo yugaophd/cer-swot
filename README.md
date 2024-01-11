@@ -12,7 +12,7 @@ The SWOT-CER project focuses on enhancing the accuracy of SWOT (Surface Water an
   - Stratification sample in the California Current System (`stratification_sample_ccs_2015-01-06.nc`).
 - **Output**:
   - NetCDF file (`./rossby_wave_estimate_[date]_[number_of_waves]waves_data.nc`) with selected waves, amplitudes, estimated SSH anomalies, and residual.
-  - Fig.1 - 3
+  - Produces Fig.1 - 3 in the manuscript.
 
 ### CER111
 - **Function**: Multiday data assimilation emphasizing correlated error reduction with four error terms.
